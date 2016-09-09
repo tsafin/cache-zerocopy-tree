@@ -1,0 +1,6 @@
+/MR/TypeConverter.mac
+MR.pkg
+Sample.pkg
+Service.pkg
+cache-map-reduce.prj
+zerocopyTree.prj

@@ -1,0 +1,136 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Export generator="Cache" version="25">
+<Class name="Service.DocumentTree">
+<Description>
+Experimental class to support connected tree forest</Description>
+<IncludeCode>Service.DocTreeDefault</IncludeCode>
+<Super>%RegisteredObject</Super>
+<TimeCreated>64169,63548.890846</TimeCreated>
+
+<Property name="TempGlo">
+<Description>
+By default uses @TempGlo PPG storage or the whole forest (i.e. it's redirected to CACHETEMP)
+You could use any local or global for those purposes</Description>
+<Type>%String</Type>
+<InitialExpression>$$$DOCTREEDEFAULT</InitialExpression>
+</Property>
+
+<Property name="AutoCleanup">
+<Description>
+Cleanup all created trees upon object closure</Description>
+<Type>%Boolean</Type>
+<InitialExpression>$$$OK</InitialExpression>
+</Property>
+
+<Property name="KnownTrees">
+<Type>%String</Type>
+<MultiDimensional>1</MultiDimensional>
+<Private>1</Private>
+</Property>
+
+<Method name="%OnClose">
+<ReturnType>%Status</ReturnType>
+<Implementation><![CDATA[
+	if ..AutoCleanup {
+		#dim trees As %String = $order(..KnownTrees(""))
+		while trees '= "" {
+			set next = $order(..KnownTrees(trees))
+			kill @..CalcTreeGloRef(..KnownTrees(trees))
+			set trees = next
+		}
+	}
+	return $$$OK
+]]></Implementation>
+</Method>
+
+<Method name="ReserveTree">
+<ReturnType>%String</ReturnType>
+<Implementation><![CDATA[
+	#dim gloRef As %String = ..TempGlo
+	#dim i As %integer = $Increment(@gloRef)
+	
+	return $name(@gloRef@(i))
+]]></Implementation>
+</Method>
+
+<Method name="AddTree">
+<FormalSpec>Name:%String</FormalSpec>
+<ReturnType>%String</ReturnType>
+<Implementation><![CDATA[
+	// i.e. for DocumentContent we will have root node incremented
+	// ^||DocTree = 1
+	// and gloref pointer saved to KnownTrees array
+	// i%KnownTrees("DocumentContent") => ^||DocTree(1)
+	
+	#dim gloRef As %String = ..ReserveTree()
+	set ..KnownTrees(Name) = gloRef
+	return gloRef
+]]></Implementation>
+</Method>
+
+<Method name="DumpTree">
+<FormalSpec>Name:%String</FormalSpec>
+<Implementation><![CDATA[
+	#dim gloRef As %String = $get(..KnownTrees(Name))
+	if gloRef '= "" {
+		zwrite @gloRef
+	}
+]]></Implementation>
+</Method>
+
+<Method name="PurgeAllTrees">
+<ClassMethod>1</ClassMethod>
+<FormalSpec>TempGlo:%String=$$$DOCTREEDEFAULT</FormalSpec>
+<Implementation><![CDATA[	kill @TempGlo
+]]></Implementation>
+</Method>
+
+<Method name="CalcTreeGloRef">
+<FormalSpec>TreeGloRef:%String="",Args...</FormalSpec>
+<ReturnType>%String</ReturnType>
+<Implementation><![CDATA[
+	if TreeGloRef = "" {
+		return ""
+	}
+	#dim i As %Integer
+	for i=1:1:$get(Args) {
+		set TreeGloRef = $name(@TreeGloRef@(Args(i)))
+	}
+	// TODO - calc encoded string for hashing
+	return TreeGloRef
+]]></Implementation>
+</Method>
+
+<Method name="%DispatchMethod">
+<Description>
+Getter for unknown multidimensional property (i.e. DocumentContent)
+silently invokes tree walker</Description>
+<FormalSpec>Method:%String,Args...</FormalSpec>
+<Implementation><![CDATA[
+	#dim gloRef As %String = $get(..KnownTrees(Method))
+	if gloRef '= "" {
+		set gloRef = ..CalcTreeGloRef(gloRef, Args...)
+		return $get(@gloRef)
+	} else {
+		return ""
+	}
+]]></Implementation>
+</Method>
+
+<Method name="%DispatchSetMultidimProperty">
+<Description>
+Setter for unknown multidimensional property</Description>
+<FormalSpec>Property:%String,Val,Subs...</FormalSpec>
+<Implementation><![CDATA[
+	#dim gloRef As %String = $get(..KnownTrees(Property))
+	if gloRef = "" {
+		set gloRef = ..AddTree(Property)
+	}
+	if gloRef '= "" {
+		set gloRef = ..CalcTreeGloRef(gloRef, Subs...)
+		set @gloRef = Val
+	}
+]]></Implementation>
+</Method>
+</Class>
+</Export>

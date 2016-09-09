@@ -1,0 +1,87 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Export generator="Cache" version="25">
+<Routine name="subscripts" type="MAC" languagemode="0"><![CDATA[
+CheckSubscripts() [a] public 
+{
+	for gloRef = "^a(1)","^a(1,1)","^a(1,2)","^a(2,3,4)",$name(^a(1,2,3,"XX","YY")),$name(^a(1,2,3,"XX",1)) {
+		/*
+		$ZU(73,0,name) -- returns a global descriptor ($LIST)   
+
+						  Convert a global name to $LIST global descriptor
+						  ^name(subscripts) or ^|namespace|name(subscripts)                    
+						  to                                              
+						  $LIST(name,encodedsubs,namespace)               
+
+		$ZU(73,1,gdsc[,subs]) -- returns a global name          
+		
+						Convert a $LIST global descriptor to a global reference
+						$LIST(name,encodedsubs,namespace)                      
+						to                                                     
+						^name(subscripts) or ^|namespace|name(subscripts)                           
+
+		$ZU(73,2,name) -- return the encoded subscripts in $LIST format                       
+ 		*/
+		set desc = $zu(73,0,gloRef)
+		write !,gloRef,! zwrite desc zzdump desc
+		set subs1 = $li(desc,2)
+		zwrite subs1 zzdump subs1
+		set subs2 = $zu(73,2,gloRef)
+		zwrite subs2 zzdump subs2
+		set restoredGloRef = $zu(73,1,desc)
+		write !,"Restored gloRef:  ", restoredGloRef,!
+	}
+}
+
+CheckSubscripts2() [a] public 
+{
+	for gloRef = "a(1)","a(1,1)","a(1,2)","a(2,3,4)",$name(^a(1,2,3,"XX","YY")),$name(^a(1,2,3,"XX",1)) {
+		/*
+		Interconvert between string and key format,            
+		Also look up collation type to get an  encoding rule   
+		and table number.                                      
+		                                                       
+		$ZU(70,0,num) -- returns a "rule descriptor" for the   
+		local translations used by collation type num.  (What  
+		is actually returned is the encoding rule byte * 256 + 
+		the encoding table number.)                            
+		                                                       
+		$ZU(70,1,num) -- returns a "rule descriptor" for the   
+		global translations used by collation type num         
+		                                                       
+
+ 		*/
+		#dim coldesc As %Numeric = $zu(70, 1, 0)
+		#dim qlen As %Integer = $qlength(gloRef)
+		#dim encodedRef As %String = $qsubscript(gloRef,0)
+		for i=1:1:qlen {
+			set encodedRef = encodedRef_$c(0)_$zutil(70, 2, $qsubscript(gloRef, i), coldesc)	 
+		}
+		write !,gloRef,!
+		zzdump encodedRef zwrite encodedRef write !
+	}
+}
+
+
+Init() [a,b]
+{
+	kill a,b
+	set a=3,a(1)=4,a(2,4)=5,a(3)=6,a(2,4,5)=7
+	set b=9,b(1,2,3)=10,b(2)=0,b(3)=11
+}
+
+Join(gloRefL, gloRefR) [a,b]
+{
+	merge @gloRefL = @gloRefR
+}
+
+Debug() [a,b] public 
+{
+	do Init()
+	write !, "Before:", !
+	zwrite a
+	zwrite b
+	write !!
+	do Join($name(a(2,3)),$name(b)) zwrite a(2) write !
+}
+]]></Routine>
+</Export>
