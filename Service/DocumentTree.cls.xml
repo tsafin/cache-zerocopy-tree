@@ -23,6 +23,20 @@ Cleanup all created trees upon object closure</Description>
 </Property>
 
 <Property name="KnownTrees">
+<Description>
+Root pointers for all known so far named trees,
+i.e. for $this.DocumentContent it would be i%KnownTrees("DocumentContent") pointing to 
+the ..TempGlo subtree </Description>
+<Type>%String</Type>
+<MultiDimensional>1</MultiDimensional>
+<Private>1</Private>
+</Property>
+
+<Property name="XlatedSubsCache">
+<Description>
+cache of recently translated/walked subscripts
+might point to differennt global altogether
+TODO - limit cache size to N recentmost walks</Description>
 <Type>%String</Type>
 <MultiDimensional>1</MultiDimensional>
 <Private>1</Private>
@@ -86,17 +100,23 @@ Cleanup all created trees upon object closure</Description>
 </Method>
 
 <Method name="CalcTreeGloRef">
-<FormalSpec>TreeGloRef:%String="",Args...</FormalSpec>
+<FormalSpec><![CDATA[TreeGloRef:%String="",&encoded,Args...]]></FormalSpec>
 <ReturnType>%String</ReturnType>
 <Implementation><![CDATA[
+	// nothing to start from, bail out
 	if TreeGloRef = "" {
 		return ""
 	}
 	#dim i As %Integer
+	#dim encodedSubs As %List = ""
+	// TODO - extract to walk() function
+	// convert args to proper subscripts syntax, 
+	// calculate their encoded hash string along a way
 	for i=1:1:$get(Args) {
 		set TreeGloRef = $name(@TreeGloRef@(Args(i)))
+		set encodedSubs = encodedSubs _ $lb(Args(i)) // TODO - encode using NLS normalization via $zu(70,*)
 	}
-	// TODO - calc encoded string for hashing
+
 	return TreeGloRef
 ]]></Implementation>
 </Method>
@@ -108,11 +128,27 @@ silently invokes tree walker</Description>
 <FormalSpec>Method:%String,Args...</FormalSpec>
 <Implementation><![CDATA[
 	#dim gloRef As %String = $get(..KnownTrees(Method))
+	#dim encodedSubs = ""
+
 	if gloRef '= "" {
-		set gloRef = ..CalcTreeGloRef(gloRef, Args...)
+		set gloRef = ..CalcTreeGloRef(gloRef, .encodedSubs,Args...)
 		return $get(@gloRef)
 	} else {
 		return ""
+	}
+]]></Implementation>
+</Method>
+
+<Method name="Assign">
+<Description>
+Assign value (scalar or object) to the multi-dimensional node @GloRef</Description>
+<FormalSpec>GloRef:%String,Value:%String</FormalSpec>
+<ReturnType>%Status</ReturnType>
+<Implementation><![CDATA[
+	if '$isobject(Value) {
+		set @GloRef = Value
+	} else {
+		// TODO
 	}
 ]]></Implementation>
 </Method>
@@ -126,9 +162,11 @@ Setter for unknown multidimensional property</Description>
 	if gloRef = "" {
 		set gloRef = ..AddTree(Property)
 	}
+	#dim encodedSubs As %List = ""
+
 	if gloRef '= "" {
-		set gloRef = ..CalcTreeGloRef(gloRef, Subs...)
-		set @gloRef = Val
+		set gloRef = ..CalcTreeGloRef(gloRef, .encodedSubs, Subs...)
+		do ..Assign(gloRef, Val)
 	}
 ]]></Implementation>
 </Method>
