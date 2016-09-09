@@ -42,6 +42,16 @@ TODO - limit cache size to N recentmost walks</Description>
 <Private>1</Private>
 </Property>
 
+<Property name="KeepObjects">
+<Description>
+we need to keep opened [and their storage retained]
+all zerocopy objects we were merged with. 
+So keep object handy, increasing their reference counters</Description>
+<Type>%String</Type>
+<MultiDimensional>1</MultiDimensional>
+<Private>1</Private>
+</Property>
+
 <Method name="%OnClose">
 <ReturnType>%Status</ReturnType>
 <Implementation><![CDATA[
@@ -52,6 +62,8 @@ TODO - limit cache size to N recentmost walks</Description>
 			kill @..CalcTreeGloRef(..KnownTrees(trees))
 			set trees = next
 		}
+		// NB! ..KeepObjects(*) array will be cleaned up automatically
+		// and their objects temp trees will be removed upon all reference closed
 	}
 	return $$$OK
 ]]></Implementation>
@@ -100,7 +112,7 @@ TODO - limit cache size to N recentmost walks</Description>
 </Method>
 
 <Method name="CalcTreeGloRef">
-<FormalSpec><![CDATA[TreeGloRef:%String="",&encoded,Args...]]></FormalSpec>
+<FormalSpec><![CDATA[TreeGloRef:%String="",&encodedSubs:%List,Args...]]></FormalSpec>
 <ReturnType>%String</ReturnType>
 <Implementation><![CDATA[
 	// nothing to start from, bail out
@@ -108,7 +120,6 @@ TODO - limit cache size to N recentmost walks</Description>
 		return ""
 	}
 	#dim i As %Integer
-	#dim encodedSubs As %List = ""
 	// TODO - extract to walk() function
 	// convert args to proper subscripts syntax, 
 	// calculate their encoded hash string along a way
@@ -121,20 +132,17 @@ TODO - limit cache size to N recentmost walks</Description>
 ]]></Implementation>
 </Method>
 
-<Method name="%DispatchMethod">
+<Method name="RetainObjectsRef">
 <Description>
-Getter for unknown multidimensional property (i.e. DocumentContent)
-silently invokes tree walker</Description>
-<FormalSpec>Method:%String,Args...</FormalSpec>
+increment reference to the object to make sure it will be kept
+around till our own closure</Description>
+<FormalSpec>Value:%RegisteredObject</FormalSpec>
+<Private>1</Private>
 <Implementation><![CDATA[
-	#dim gloRef As %String = $get(..KnownTrees(Method))
-	#dim encodedSubs = ""
-
-	if gloRef '= "" {
-		set gloRef = ..CalcTreeGloRef(gloRef, .encodedSubs,Args...)
-		return $get(@gloRef)
-	} else {
-		return ""
+	#dim stringified As %String = ""_Value
+	if '$get(..KeepObjects(stringified)) {
+		set ..KeepObjects($increment(..KeepObjects)) = Value
+		set ..KeepObjects(stringified) = 1
 	}
 ]]></Implementation>
 </Method>
@@ -148,19 +156,69 @@ Assign value (scalar or object) to the multi-dimensional node @GloRef</Descripti
 	if '$isobject(Value) {
 		set @GloRef = Value
 	} else {
-		// TODO
+		do ..RetainObjectsRef(Value)
+
+		#dim name As %String = Value.DocTreeName
+		#dim object As DocumentTree = Value.TreeObject
+		set @GloRef = object.CalcTreeGloRef($get(object.KnownTrees(name)))
 	}
 ]]></Implementation>
 </Method>
 
-<Method name="%DispatchSetMultidimProperty">
+<Method name="GloRef">
+<FormalSpec>Property:%String</FormalSpec>
+<Implementation><![CDATA[
+	#dim ptr As TreeHolder = ##class(TreeHolder).%New()
+	// no extra arguments, access to the root
+	set ptr.TreeObject = $this
+	set ptr.DocTreeName = Property
+#if 0
+	if $get(Args) > 0 {
+		// TODO
+	}
+#endif
+	return ptr
+]]></Implementation>
+</Method>
+
+<Method name="GetMultiArray">
+<Description>
+Getter for unknown multidimensional property (i.e. DocumentContent)
+silently invokes tree walker</Description>
+<FormalSpec>Property:%String,OffsetSubs:%String="",Args...</FormalSpec>
+<Implementation><![CDATA[
+	#dim gloRef As %String = $get(..KnownTrees(Property))
+	#dim encodedSubs = ""
+
+	if gloRef '= "" {
+		set gloRef = ..CalcTreeGloRef(gloRef, .encodedSubs, Args...)
+		if OffsetSubs '= "" {
+			set gloRef = $name(@gloRef@(OffsetSubs))
+		}
+		return $get(@gloRef)
+	} else {
+		return ""
+	}
+]]></Implementation>
+</Method>
+
+<Method name="%DispatchMethod">
+<FormalSpec>Method:%String,Args...</FormalSpec>
+<Implementation><![CDATA[	return ..GetMultiArray(Method, "", Args...)
+]]></Implementation>
+</Method>
+
+<Method name="SetMultiArray">
 <Description>
 Setter for unknown multidimensional property</Description>
-<FormalSpec>Property:%String,Val,Subs...</FormalSpec>
+<FormalSpec>Property:%String,OffsetSubs:%String="",Val,Subs...</FormalSpec>
 <Implementation><![CDATA[
 	#dim gloRef As %String = $get(..KnownTrees(Property))
 	if gloRef = "" {
 		set gloRef = ..AddTree(Property)
+	}
+	if OffsetSubs '= "" {
+		set gloRef = $name(@gloRef@(OffsetSubs))
 	}
 	#dim encodedSubs As %List = ""
 
@@ -168,6 +226,36 @@ Setter for unknown multidimensional property</Description>
 		set gloRef = ..CalcTreeGloRef(gloRef, .encodedSubs, Subs...)
 		do ..Assign(gloRef, Val)
 	}
+]]></Implementation>
+</Method>
+
+<Method name="%DispatchSetMultidimProperty">
+<FormalSpec>Property:%String,Val,Subs...</FormalSpec>
+<Implementation><![CDATA[	do ..SetMultiArray(Property, "", Val, Subs...)
+]]></Implementation>
+</Method>
+
+<Method name="Debug">
+<ClassMethod>1</ClassMethod>
+<Implementation><![CDATA[
+	set d = ##class(DocumentTree).%New()
+	set d.DocTree(1) = 13
+	set d.DocTree(1,1) = 1
+	set d.DocTree(1,3) = 3
+	zw d
+	do d.DumpTree("DocTree")
+	
+	set k = ##class(DocumentTree).%New()
+	set k.DocTree(2) = 26
+	set k.DocTree(2,2) = 2
+	zw k
+	do k.DumpTree("DocTree")
+
+	write !, "Assignment d(2) = k",!	
+	set d.DocTree(2) = k.GloRef("DocTree")
+	zw d
+	do d.DumpTree("DocTree")
+	write ! zw k
 ]]></Implementation>
 </Method>
 </Class>
