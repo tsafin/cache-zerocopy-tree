@@ -167,6 +167,27 @@ if there are some nodes underneath - just kill them</Description>
 ]]></Implementation>
 </Method>
 
+<Method name="IsPtr">
+<CodeMode>expression</CodeMode>
+<FormalSpec>P</FormalSpec>
+<Implementation><![CDATA[$listvalid(P) && ($list(P,1) = 42)
+]]></Implementation>
+</Method>
+
+<Method name="MakePtr">
+<CodeMode>expression</CodeMode>
+<FormalSpec>S</FormalSpec>
+<Implementation><![CDATA[$listbuild(42,S)
+]]></Implementation>
+</Method>
+
+<Method name="GetPtr">
+<CodeMode>expression</CodeMode>
+<FormalSpec>P</FormalSpec>
+<Implementation><![CDATA[$list(P,2)
+]]></Implementation>
+</Method>
+
 <Method name="Assign">
 <Description>
 Assign value (scalar or object) to the multi-dimensional node @GloRef</Description>
@@ -182,7 +203,7 @@ Assign value (scalar or object) to the multi-dimensional node @GloRef</Descripti
 		#dim object As DocumentTree = Value.TreeObject
 
 		do ..KillSubtree(GloRef)		
-		set @GloRef = object.CalcTreeGloRef($get(object.KnownTrees(treeName)))
+		set @GloRef = ..MakePtr(object.CalcTreeGloRef($get(object.KnownTrees(treeName))))
 	}
 ]]></Implementation>
 </Method>
@@ -213,7 +234,9 @@ Assign value (scalar or object) to the multi-dimensional node @GloRef</Descripti
 	
 	// 1. fast-track
 	if $data(@GloRef, value)#2 {
-		return value
+		if '..IsPtr(value) {
+			return value
+		}
 	}
 	// 2. slow track
 	
@@ -230,12 +253,15 @@ Assign value (scalar or object) to the multi-dimensional node @GloRef</Descripti
 	for i=1:1:len {
 		set sub = $qsubscript(GloRef, i)
 		set preRef = $name(@preRef@(sub))
-		// if we found intermediate pointer
-		if $data(@preRef, value)#1 {
-			// TODO - assertion that this is pointer, not the data
-			set preRef = value
-		}
+		
+		// if we found intermediate data node
+		// then check whether it's pointer, and dereference it
+		// and stay at the same index
+		if $data(@preRef, value)#2 && ..IsPtr(value) {
+			set preRef = ..GetPtr(value)
+		} 
 	}
+	// we are succeeded only if we get to the end of subscripts
 	return $get(@preRef, ..DefaultValue)
 ]]></Implementation>
 </Method>
@@ -297,6 +323,16 @@ Setter for unknown multidimensional property</Description>
 <Method name="Debug">
 <ClassMethod>1</ClassMethod>
 <Implementation><![CDATA[
+	set DocTree(1) = 13
+	set DocTree(1,1) = 1
+	set DocTree(1,3) = 3
+
+	set kDocTree(2) = 26
+	set kDocTree(2,2) = 2
+	
+	merge DocTree(2) = kDocTree
+	zw DocTree
+
 	set d = ##class(DocumentTree).%New()
 	set d.DocTree(1) = 13
 	set d.DocTree(1,1) = 1
@@ -323,6 +359,7 @@ Setter for unknown multidimensional property</Description>
 	$$$D(d.DocTree(1,3))
 	$$$D(d.DocTree(2))
 	$$$D(d.DocTree(2,2))
+	$$$D(d.DocTree(2,2,2))
 ]]></Implementation>
 </Method>
 </Class>
