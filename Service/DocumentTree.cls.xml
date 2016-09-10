@@ -15,6 +15,13 @@ You could use any local or global for those purposes</Description>
 <InitialExpression>$$$DOCTREEDEFAULT</InitialExpression>
 </Property>
 
+<Property name="DefaultValue">
+<Description>
+Property allows to reefine default value for undefined tree nodes
+Empty string is default, but you are free to change it</Description>
+<Type>%String</Type>
+</Property>
+
 <Property name="AutoCleanup">
 <Description>
 Cleanup all created trees upon object closure</Description>
@@ -105,6 +112,8 @@ So keep object handy, increasing their reference counters</Description>
 </Method>
 
 <Method name="PurgeAllTrees">
+<Description>
+Kill temporary storage for all trees. Don't use it! </Description>
 <ClassMethod>1</ClassMethod>
 <FormalSpec>TempGlo:%String=$$$DOCTREEDEFAULT</FormalSpec>
 <Implementation><![CDATA[	kill @TempGlo
@@ -147,6 +156,17 @@ around till our own closure</Description>
 ]]></Implementation>
 </Method>
 
+<Method name="KillSubtree">
+<Description>
+if there are some nodes underneath - just kill them</Description>
+<FormalSpec>GloRef:%String</FormalSpec>
+<Private>1</Private>
+<Implementation><![CDATA[
+	if GloRef = "" { quit }
+	kill @GloRef
+]]></Implementation>
+</Method>
+
 <Method name="Assign">
 <Description>
 Assign value (scalar or object) to the multi-dimensional node @GloRef</Description>
@@ -158,9 +178,11 @@ Assign value (scalar or object) to the multi-dimensional node @GloRef</Descripti
 	} else {
 		do ..RetainObjectsRef(Value)
 
-		#dim name As %String = Value.DocTreeName
+		#dim treeName As %String = Value.DocTreeName
 		#dim object As DocumentTree = Value.TreeObject
-		set @GloRef = object.CalcTreeGloRef($get(object.KnownTrees(name)))
+
+		do ..KillSubtree(GloRef)		
+		set @GloRef = object.CalcTreeGloRef($get(object.KnownTrees(treeName)))
 	}
 ]]></Implementation>
 </Method>
@@ -181,6 +203,43 @@ Assign value (scalar or object) to the multi-dimensional node @GloRef</Descripti
 ]]></Implementation>
 </Method>
 
+<Method name="GetValue">
+<FormalSpec>GloRef:%String</FormalSpec>
+<Implementation><![CDATA[
+	if GloRef = "" {
+		return ..DefaultValue
+	}
+	#dim value As %String
+	
+	// 1. fast-track
+	if $data(@GloRef, value)#2 {
+		return value
+	}
+	// 2. slow track
+	
+	// 2.1. check translation cache
+	// TODO
+	
+	// 2.2. proceed full walk
+	// FIXME - we will just ignore namespace if any
+	#dim prefixName As %String = $qsubscript(GloRef, 0)
+	#dim len As %Integer = $qlength(GloRef)
+	#dim i As %Integer
+	#dim sub As %String 
+	#dim preRef As %String = prefixName
+	for i=1:1:len {
+		set sub = $qsubscript(GloRef, i)
+		set preRef = $name(@preRef@(sub))
+		// if we found intermediate pointer
+		if $data(@preRef, value)#1 {
+			// TODO - assertion that this is pointer, not the data
+			set preRef = value
+		}
+	}
+	return $get(@preRef, ..DefaultValue)
+]]></Implementation>
+</Method>
+
 <Method name="GetMultiArray">
 <Description>
 Getter for unknown multidimensional property (i.e. DocumentContent)
@@ -195,7 +254,7 @@ silently invokes tree walker</Description>
 		if OffsetSubs '= "" {
 			set gloRef = $name(@gloRef@(OffsetSubs))
 		}
-		return $get(@gloRef)
+		return ..GetValue(gloRef)
 	} else {
 		return ""
 	}
@@ -256,6 +315,14 @@ Setter for unknown multidimensional property</Description>
 	zw d
 	do d.DumpTree("DocTree")
 	write ! zw k
+	
+	write !, "Accessing their nodes",!
+	#define D(%s)	write ##quote(%s), ?14, " = ", %s, !
+	$$$D(d.DocTree(1))
+	$$$D(d.DocTree(1,1))
+	$$$D(d.DocTree(1,3))
+	$$$D(d.DocTree(2))
+	$$$D(d.DocTree(2,2))
 ]]></Implementation>
 </Method>
 </Class>
