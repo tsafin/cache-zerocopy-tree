@@ -3,7 +3,7 @@
 <Class name="ZeroCopy.Tree">
 <Description>
 Experimental class to support connected tree forest</Description>
-<IncludeCode>Service.DocTreeDefault</IncludeCode>
+<IncludeCode>ZeroCopy.Defaults</IncludeCode>
 <Super>%RegisteredObject</Super>
 <TimeCreated>64169,63548.890846</TimeCreated>
 
