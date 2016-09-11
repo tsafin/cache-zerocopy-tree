@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <Export generator="Cache" version="25">
-<Class name="Service.TreeHolder">
+<Class name="ZeroCopy.TreePtr">
 <Description>
 TreeHolder is sort of "smart pointer" which holds tree object with context</Description>
 <Super>%RegisteredObject</Super>
@@ -11,7 +11,7 @@ TreeHolder is sort of "smart pointer" which holds tree object with context</Desc
 </Property>
 
 <Property name="TreeObject">
-<Type>Service.DocumentTree</Type>
+<Type>ZeroCopy.Tree</Type>
 </Property>
 
 <UDLText name="T">
@@ -24,14 +24,18 @@ TreeHolder is sort of "smart pointer" which holds tree object with context</Desc
 <Method name="%DispatchMethod">
 <CodeMode>expression</CodeMode>
 <FormalSpec>Method:%String,Args...</FormalSpec>
-<Implementation><![CDATA[..TreeObject.GetMultiArray(..DocTreeName, "", Args...)
+<Implementation><![CDATA[
+..TreeObject.GetMultiArray(..DocTreeName, "", Args...)
+
 ]]></Implementation>
 </Method>
 
 <Method name="%DispatchSetMultidimProperty">
 <CodeMode>expression</CodeMode>
 <FormalSpec>Property:%String,Val,Subs...</FormalSpec>
-<Implementation><![CDATA[..TreeObject.SetMultiArray(..DocTreeName, "", Val, Subs...)
+<Implementation><![CDATA[
+..TreeObject.SetMultiArray(..DocTreeName, "", Val, Subs...)
+
 ]]></Implementation>
 </Method>
 </Class>

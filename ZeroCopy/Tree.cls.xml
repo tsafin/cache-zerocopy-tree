@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <Export generator="Cache" version="25">
-<Class name="Service.DocumentTree">
+<Class name="ZeroCopy.Tree">
 <Description>
 Experimental class to support connected tree forest</Description>
 <IncludeCode>Service.DocTreeDefault</IncludeCode>
@@ -102,6 +102,8 @@ So keep object handy, increasing their reference counters</Description>
 </Method>
 
 <Method name="DumpTree">
+<Description>
+Dump particularly named tree branch</Description>
 <FormalSpec>Name:%String</FormalSpec>
 <Implementation><![CDATA[
 	#dim gloRef As %String = $get(..KnownTrees(Name))
@@ -113,7 +115,7 @@ So keep object handy, increasing their reference counters</Description>
 
 <Method name="PurgeAllTrees">
 <Description>
-Kill temporary storage for all trees. Don't use it! </Description>
+Kill temporary storage for all existing trees kept in the @TempGlo. Don't use it! </Description>
 <ClassMethod>1</ClassMethod>
 <FormalSpec>TempGlo:%String=$$$DOCTREEDEFAULT</FormalSpec>
 <Implementation><![CDATA[	kill @TempGlo
@@ -121,6 +123,10 @@ Kill temporary storage for all trees. Don't use it! </Description>
 </Method>
 
 <Method name="CalcTreeGloRef">
+<Description>
+Given arguments as subscripts, the @TreeGloRef as root of storage
+return the final global reference (no check for existence), also
+pass back the calculated @encodedSubs as binary key</Description>
 <FormalSpec><![CDATA[TreeGloRef:%String="",&encodedSubs:%List,Args...]]></FormalSpec>
 <ReturnType>%String</ReturnType>
 <Implementation><![CDATA[
@@ -150,8 +156,8 @@ around till our own closure</Description>
 <Implementation><![CDATA[
 	#dim stringified As %String = ""_Value
 	if '$get(..KeepObjects(stringified)) {
-		set ..KeepObjects($increment(..KeepObjects)) = Value
-		set ..KeepObjects(stringified) = 1
+		set ..KeepObjects($increment(..KeepObjects)) = Value 	// incRef over Value object 
+		set ..KeepObjects(stringified) = 1						// mark entry in "hash" as known
 	}
 ]]></Implementation>
 </Method>
@@ -167,21 +173,29 @@ if there are some nodes underneath - just kill them</Description>
 ]]></Implementation>
 </Method>
 
-<Method name="IsPtr">
-<CodeMode>expression</CodeMode>
-<FormalSpec>P</FormalSpec>
-<Implementation><![CDATA[$listvalid(P) && ($list(P,1) = 42)
-]]></Implementation>
-</Method>
-
 <Method name="MakePtr">
+<Description>
+create special $listbuild(42, value) content to recognize pointers from the
+average string or numeric</Description>
 <CodeMode>expression</CodeMode>
 <FormalSpec>S</FormalSpec>
 <Implementation><![CDATA[$listbuild(42,S)
 ]]></Implementation>
 </Method>
 
+<Method name="IsPtr">
+<Description>
+Check whether the passed string value is our "Pointer" or not
+[it should be valid $lb and their 1st entry has to be 42 (don't ask)</Description>
+<CodeMode>expression</CodeMode>
+<FormalSpec>P</FormalSpec>
+<Implementation><![CDATA[$listvalid(P) && ($list(P,1) = 42)
+]]></Implementation>
+</Method>
+
 <Method name="GetPtr">
+<Description>
+Extract actual pointer value from their encoded $lb(42,Ptr)</Description>
 <CodeMode>expression</CodeMode>
 <FormalSpec>P</FormalSpec>
 <Implementation><![CDATA[$list(P,2)
@@ -209,22 +223,31 @@ Assign value (scalar or object) to the multi-dimensional node @GloRef</Descripti
 </Method>
 
 <Method name="GloRef">
+<Description>
+Factory method returning "smart-pointer" wrapped as 
+##class(TreePtr) object</Description>
 <FormalSpec>Property:%String</FormalSpec>
 <Implementation><![CDATA[
-	#dim ptr As TreeHolder = ##class(TreeHolder).%New()
+	#dim ptr As TreePtr = ##class(TreePtr).%New()
 	// no extra arguments, access to the root
 	set ptr.TreeObject = $this
 	set ptr.DocTreeName = Property
 #if 0
+
+	// TODO - allow to create pointers pointing inside of tree
+	//        no only their root
 	if $get(Args) > 0 {
-		// TODO
+		
 	}
 #endif
+
 	return ptr
 ]]></Implementation>
 </Method>
 
 <Method name="GetValue">
+<Description>
+actual implementation of a getter, given @GloRef reference</Description>
 <FormalSpec>GloRef:%String</FormalSpec>
 <Implementation><![CDATA[
 	if GloRef = "" {
@@ -333,14 +356,14 @@ Setter for unknown multidimensional property</Description>
 	merge DocTree(2) = kDocTree
 	zw DocTree
 
-	set d = ##class(DocumentTree).%New()
+	set d = ##class(ZeroCopy.Tree).%New()
 	set d.DocTree(1) = 13
 	set d.DocTree(1,1) = 1
 	set d.DocTree(1,3) = 3
 	zw d
 	do d.DumpTree("DocTree")
 	
-	set k = ##class(DocumentTree).%New()
+	set k = ##class(ZeroCopy.Tree).%New()
 	set k.DocTree(2) = 26
 	set k.DocTree(2,2) = 2
 	zw k
