@@ -1,12 +1,13 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <Export generator="Cache" version="25">
-<Project name="zerocopyTree" LastModified="2016-09-12 03:26:48.948715" Target="##class(ZeroCopy.Tree).Debug()" TargetType="0">
+<Project name="zerocopyTree" LastModified="2016-09-13 00:49:50.796317" Target="##class(ZeroCopy.Tree).Debug()" TargetType="0">
   <Items>
     <ProjectItem name="Service" type="PKG"></ProjectItem>
     <ProjectItem name="subscripts.MAC" type="MAC"></ProjectItem>
     <ProjectItem name="ZeroCopy.Tree" type="CLS"></ProjectItem>
     <ProjectItem name="ZeroCopy.TreePtr" type="CLS"></ProjectItem>
     <ProjectItem name="ZeroCopy.Defaults.INC" type="MAC"></ProjectItem>
+    <ProjectItem name="ZeroCopy.Debug" type="CLS"></ProjectItem>
   </Items>
   <BreakPoints>
     <BreakPoint Routine="Service.DocumentTree.CLS" Offset="Debug+20"></BreakPoint>

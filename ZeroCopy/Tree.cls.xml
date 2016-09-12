@@ -39,7 +39,7 @@ the ..TempGlo subtree </Description>
 <Private>1</Private>
 </Property>
 
-<Property name="XlatedSubsCache">
+<Property name="SubsTLB">
 <Description>
 cache of recently translated/walked subscripts
 might point to differennt global altogether
@@ -244,6 +244,8 @@ Factory method returning "smart-pointer" wrapped as
 actual implementation of a getter, given @GloRef reference</Description>
 <FormalSpec>GloRef:%String</FormalSpec>
 <Implementation><![CDATA[
+#define USETLB 0
+
 	if GloRef = "" {
 		return ..DefaultValue
 	}
@@ -257,8 +259,13 @@ actual implementation of a getter, given @GloRef reference</Description>
 	}
 	// 2. slow track
 	
-	// 2.1. check translation cache
-	// TODO
+	// 2.1. check translation cache filled by prior accesses
+#if $$$USETLB
+	#dim cachedValue As %String = $get(..SubsTLB(GloRef))
+	if cachedValue '= "" {
+		return $get(@cachedValue, ..DefaultValue)
+	}
+#endif
 	
 	// 2.2. proceed full walk
 	// FIXME - we will just ignore namespace if any
@@ -278,6 +285,11 @@ actual implementation of a getter, given @GloRef reference</Description>
 			set preRef = ..GetPtr(value)
 		} 
 	}
+#if $$$USETLB
+	// 2.3 save translated reference for later access
+	set ..SubsTLB(GloRef) = preRef
+#endif
+	 
 	// we are succeeded only if we get to the end of subscripts
 	return $get(@preRef, ..DefaultValue)
 ]]></Implementation>
@@ -354,103 +366,9 @@ Setter for unknown multidimensional property</Description>
 ]]></Implementation>
 </Method>
 
-<Method name="Debug">
-<ClassMethod>1</ClassMethod>
-<Implementation><![CDATA[
-	set DocTree(1) = 13
-	set DocTree(1,1) = 1
-	set DocTree(1,3) = 3
-
-	set kDocTree(2) = 26
-	set kDocTree(2,2) = 2
-	
-	merge DocTree(2) = kDocTree
-	zw DocTree
-
-	set d = ##class(ZeroCopy.Tree).%New()
-	set d.DocTree(1) = 13
-	set d.DocTree(1,1) = 1
-	set d.DocTree(1,3) = 3
-	zw d
-	do d.DumpTree("DocTree")
-	
-	set k = ##class(ZeroCopy.Tree).%New()
-	set k.DocTree(2) = 26
-	set k.DocTree(2,2) = 2
-	zw k
-	do k.DumpTree("DocTree")
-
-	write !, "Assignment d(2) = k",!	
-	set d.DocTree(2) = k.GloRef("DocTree")
-	zw d
-	do d.DumpTree("DocTree")
-	write ! zw k
-	
-	write !, "Accessing their nodes",!
-	#define D(%s)	write ##quote(%s), ?14, " = ", %s, !
-	$$$D(d.DocTree(1))
-	$$$D(d.DocTree(1,1))
-	$$$D(d.DocTree(1,3))
-	$$$D(d.DocTree(2))
-	$$$D(d.DocTree(2,2))
-	$$$D(d.DocTree(2,2,2))
-]]></Implementation>
-</Method>
-
-<Method name="DebugHugeTree0">
-<ClassMethod>1</ClassMethod>
-<Implementation><![CDATA[
-	#dim base = "^||HugeTreeOld"
-	for i=1:1:500 {
-		#dim nextObject As %Integer = $increment(@base)
-		#dim objectGloReg As %String = $name(@base@(nextObject))
-		new %templateTree
-		for fieldN=1:1:119 {
-			#dim fieldName = "XmlParam_Field"_fieldN
-			set @objectGloReg@(fieldName,"Name") = fieldName
-			for property="Height","Width","Size","Longitude","Latitude","Kilo","Mega","Nano" {
-				set @objectGloReg@(fieldName, property) = $random(4)
-			}
-			merge %templateTree(fieldName) = @objectGloReg@(fieldName)
-		}
-		for goodField=1,13,24,56 {
-			#dim nameProp = %templateTree("XmlParam_Field"_goodField,"Name")
-			#dim sizeProp = %templateTree("XmlParam_Field"_goodField,"Size")
-			#dim latitudeProp = %templateTree("XmlParam_Field"_goodField,"Latitude")
-			#dim longitudeProp = %templateTree("XmlParam_Field"_goodField,"Longitude")
-		}
-	}
-	
-	// cleanup
-	kill @base
-]]></Implementation>
-</Method>
-
-<Method name="DebugHugeTree1">
-<ClassMethod>1</ClassMethod>
-<Implementation><![CDATA[
-	for i=1:1:500 {
-		#dim document As ZeroCopy.Tree = ..%New()
-		#dim template As ZeroCopy.Tree = ..%New()
-		
-		do template.AddTree("DC")
-		do document.AddTree("DC")
-		
-		for fieldN=1:1:119 {
-			#dim fieldName = "XmlParam_Field"_fieldN
-			set template.DC(fieldName,"Name") = fieldName
-			for property="Height","Width","Size","Longitude","Latitude","Kilo","Mega","Nano" {
-				set template.DC(fieldName, property) = $random(4)
-			}
-			set document.DC(fieldName) = template.GloRef("DC",fieldName)
-		}
-		for goodField=1,13,24,56 {
-			#dim nameProp = document.DC("XmlParam_Field"_goodField,"Name")
-			#dim sizeProp = document.DC("XmlParam_Field"_goodField,"Size")
-			#dim latitudeProp = document.DC("XmlParam_Field"_goodField,"Latitude")
-			#dim longitudeProp = document.DC("XmlParam_Field"_goodField,"Longitude")
-		}
-	}
+<Method name="%DispatchSetProperty">
+<FormalSpec>Property:%String,Val</FormalSpec>
+<Implementation><![CDATA[	do ..SetMultiArray(Property, Val)
 ]]></Implementation>
 </Method>
 </Class>

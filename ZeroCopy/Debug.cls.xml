@@ -1,0 +1,154 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Export generator="Cache" version="25">
+<Class name="ZeroCopy.Debug">
+<Super>%RegisteredObject</Super>
+<TimeCreated>64174,319.960437</TimeCreated>
+
+<Method name="Debug">
+<ClassMethod>1</ClassMethod>
+<Implementation><![CDATA[
+	set DocTree(1) = 13
+	set DocTree(1,1) = 1
+	set DocTree(1,3) = 3
+
+	set kDocTree(2) = 26
+	set kDocTree(2,2) = 2
+	
+	merge DocTree(2) = kDocTree
+	zw DocTree
+
+	set d = ##class(ZeroCopy.Tree).%New()
+	set d.DocTree(1) = 13
+	set d.DocTree(1,1) = 1
+	set d.DocTree(1,3) = 3
+	zw d
+	do d.DumpTree("DocTree")
+	
+	set k = ##class(ZeroCopy.Tree).%New()
+	set k.DocTree(2) = 26
+	set k.DocTree(2,2) = 2
+	zw k
+	do k.DumpTree("DocTree")
+
+	write !, "Assignment d(2) = k",!	
+	set d.DocTree(2) = k.GloRef("DocTree")
+	zw d
+	do d.DumpTree("DocTree")
+	write ! zw k
+	
+	write !, "Accessing their nodes",!
+	#define D(%s)	write ##quote(%s), ?14, " = ", %s, !
+	$$$D(d.DocTree(1))
+	$$$D(d.DocTree(1,1))
+	$$$D(d.DocTree(1,3))
+	$$$D(d.DocTree(2))
+	$$$D(d.DocTree(2,2))
+	$$$D(d.DocTree(2,2,2))
+]]></Implementation>
+</Method>
+
+<Method name="DebugHugeTree0">
+<ClassMethod>1</ClassMethod>
+<Implementation><![CDATA[
+	#dim base = "^||HugeTreeOld"
+	for i=1:1:500 {
+		#dim nextObject As %Integer = $increment(@base)
+		#dim objectGloReg As %String = $name(@base@(nextObject))
+		new %templateTree
+		for fieldN=1:1:119 {
+			#dim fieldName = "XmlParam_Field"_fieldN
+			set @objectGloReg@(fieldName,"Name") = fieldName
+			for property="Height","Width","Size","Longitude","Latitude","Kilo","Mega","Nano" {
+				set @objectGloReg@(fieldName, property) = $random(4)
+			}
+		}
+		merge ^||templateTree = @objectGloReg
+		
+		for goodField=1,13,24,56 {
+			#dim nameProp = ^||templateTree("XmlParam_Field"_goodField,"Name")
+			#dim sizeProp = ^||templateTree("XmlParam_Field"_goodField,"Size")
+			#dim latitudeProp = ^||templateTree("XmlParam_Field"_goodField,"Latitude")
+			#dim longitudeProp = ^||templateTree("XmlParam_Field"_goodField,"Longitude")
+			// and once again
+			#dim nameProp1 = ^||templateTree("XmlParam_Field"_goodField,"Name")
+			#dim sizeProp1 = ^||templateTree("XmlParam_Field"_goodField,"Size")
+			#dim latitudeProp1 = ^||templateTree("XmlParam_Field"_goodField,"Latitude")
+			#dim longitudeProp1 = ^||templateTree("XmlParam_Field"_goodField,"Longitude")
+			// and again
+			#dim nameProp2 = ^||templateTree("XmlParam_Field"_goodField,"Name")
+			#dim sizeProp2 = ^||templateTree("XmlParam_Field"_goodField,"Size")
+			#dim latitudeProp2 = ^||templateTree("XmlParam_Field"_goodField,"Latitude")
+			#dim longitudeProp2 = ^||templateTree("XmlParam_Field"_goodField,"Longitude")
+		}
+	}
+	
+	// cleanup
+	kill @base
+]]></Implementation>
+</Method>
+
+<Method name="DebugHugeTree1">
+<ClassMethod>1</ClassMethod>
+<Implementation><![CDATA[
+	for i=1:1:500 {
+		#dim document As ZeroCopy.Tree = ##class(ZeroCopy.Tree).%New()
+		#dim template As ZeroCopy.Tree = ##class(ZeroCopy.Tree).%New()
+		
+		for fieldN=1:1:119 {
+			#dim fieldName = "XmlParam_Field"_fieldN
+			set template.DC(fieldName,"Name") = fieldName
+			for property="Height","Width","Size","Longitude","Latitude","Kilo","Mega","Nano" {
+				set template.DC(fieldName, property) = $random(4)
+			}
+		}
+		set document.DC = template.GloRef("DC")
+		
+		for goodField=1,13,24,56 {
+			#dim nameProp = document.DC("XmlParam_Field"_goodField,"Name")
+			#dim sizeProp = document.DC("XmlParam_Field"_goodField,"Size")
+			#dim latitudeProp = document.DC("XmlParam_Field"_goodField,"Latitude")
+			#dim longitudeProp = document.DC("XmlParam_Field"_goodField,"Longitude")
+			// once again
+			#dim nameProp1 = document.DC("XmlParam_Field"_goodField,"Name")
+			#dim sizeProp1 = document.DC("XmlParam_Field"_goodField,"Size")
+			#dim latitudeProp1 = document.DC("XmlParam_Field"_goodField,"Latitude")
+			#dim longitudeProp1 = document.DC("XmlParam_Field"_goodField,"Longitude")
+		}
+	}
+]]></Implementation>
+</Method>
+
+<Method name="DebugHugeTree2">
+<ClassMethod>1</ClassMethod>
+<Implementation><![CDATA[
+	for i=1:1:500 {
+		#dim document As ZeroCopy.Tree = ##class(ZeroCopy.Tree).%New()
+		set document.TempGlo = $name(%tempGloD)
+		#dim template As ZeroCopy.Tree = ##class(ZeroCopy.Tree).%New()
+		set template.TempGlo = $name(%tempGloT)
+		
+		for fieldN=1:1:119 {
+			#dim fieldName = "XmlParam_Field"_fieldN
+			set template.DC(fieldName,"Name") = fieldName
+			for property="Height","Width","Size","Longitude","Latitude","Kilo","Mega","Nano" {
+				set template.DC(fieldName, property) = $random(4)
+			}
+		}
+		set document.DC = template.GloRef("DC")
+		
+		for goodField=1,13,24,56 {
+			#dim nameProp = document.DC("XmlParam_Field"_goodField,"Name")
+			#dim sizeProp = document.DC("XmlParam_Field"_goodField,"Size")
+			#dim latitudeProp = document.DC("XmlParam_Field"_goodField,"Latitude")
+			#dim longitudeProp = document.DC("XmlParam_Field"_goodField,"Longitude")
+			// once again
+			#dim nameProp1 = document.DC("XmlParam_Field"_goodField,"Name")
+			#dim sizeProp1 = document.DC("XmlParam_Field"_goodField,"Size")
+			#dim latitudeProp1 = document.DC("XmlParam_Field"_goodField,"Latitude")
+			#dim longitudeProp1 = document.DC("XmlParam_Field"_goodField,"Longitude")
+		}
+	}
+]]></Implementation>
+</Method>
+</Class>
+</Export>
