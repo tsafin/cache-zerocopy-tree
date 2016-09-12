@@ -138,6 +138,7 @@ pass back the calculated @encodedSubs as binary key</Description>
 	// TODO - extract to walk() function
 	// convert args to proper subscripts syntax, 
 	// calculate their encoded hash string along a way
+	set encodedSubs = ""
 	for i=1:1:$get(Args) {
 		set TreeGloRef = $name(@TreeGloRef@(Args(i)))
 		set encodedSubs = encodedSubs _ $lb(Args(i)) // TODO - encode using NLS normalization via $zu(70,*)
@@ -217,7 +218,7 @@ Assign value (scalar or object) to the multi-dimensional node @GloRef</Descripti
 		#dim object As DocumentTree = Value.TreeObject
 
 		do ..KillSubtree(GloRef)		
-		set @GloRef = ..MakePtr(object.CalcTreeGloRef($get(object.KnownTrees(treeName))))
+		set @GloRef = ..MakePtr(Value.GloRef)
 	}
 ]]></Implementation>
 </Method>
@@ -226,20 +227,13 @@ Assign value (scalar or object) to the multi-dimensional node @GloRef</Descripti
 <Description>
 Factory method returning "smart-pointer" wrapped as 
 ##class(TreePtr) object</Description>
-<FormalSpec>Property:%String</FormalSpec>
+<FormalSpec>Property:%String,Args...</FormalSpec>
 <Implementation><![CDATA[
 	#dim ptr As TreePtr = ##class(TreePtr).%New()
 	// no extra arguments, access to the root
 	set ptr.TreeObject = $this
 	set ptr.DocTreeName = Property
-#if 0
-
-	// TODO - allow to create pointers pointing inside of tree
-	//        no only their root
-	if $get(Args) > 0 {
-		
-	}
-#endif
+	set ptr.GloRef = ..CalcTreeGloRef($get(..KnownTrees(Property)),, Args...)
 
 	return ptr
 ]]></Implementation>
@@ -289,20 +283,30 @@ actual implementation of a getter, given @GloRef reference</Description>
 ]]></Implementation>
 </Method>
 
-<Method name="GetMultiArray">
+<Method name="GetMultiArrayDirect">
 <Description>
 Getter for unknown multidimensional property (i.e. DocumentContent)
 silently invokes tree walker</Description>
-<FormalSpec>Property:%String,OffsetSubs:%String="",Args...</FormalSpec>
+<Internal>1</Internal>
+<FormalSpec>GloRef:%String,Args...</FormalSpec>
+<Implementation><![CDATA[
+	if GloRef '= "" {
+		set GloRef = ..CalcTreeGloRef(GloRef,, Args...)
+		return ..GetValue(GloRef)
+	} else {
+		return ""
+	}
+]]></Implementation>
+</Method>
+
+<Method name="GetMultiArray">
+<FormalSpec>Property:%String,Args...</FormalSpec>
 <Implementation><![CDATA[
 	#dim gloRef As %String = $get(..KnownTrees(Property))
 	#dim encodedSubs = ""
 
 	if gloRef '= "" {
 		set gloRef = ..CalcTreeGloRef(gloRef, .encodedSubs, Args...)
-		if OffsetSubs '= "" {
-			set gloRef = $name(@gloRef@(OffsetSubs))
-		}
 		return ..GetValue(gloRef)
 	} else {
 		return ""
@@ -312,24 +316,31 @@ silently invokes tree walker</Description>
 
 <Method name="%DispatchMethod">
 <FormalSpec>Method:%String,Args...</FormalSpec>
-<Implementation><![CDATA[	return ..GetMultiArray(Method, "", Args...)
+<Implementation><![CDATA[	return ..GetMultiArray(Method, Args...)
+]]></Implementation>
+</Method>
+
+<Method name="SetMultiArrayDirect">
+<Description>
+Setter for unknown multidimensional property</Description>
+<Internal>1</Internal>
+<FormalSpec>GloRef:%String,Val,Subs...</FormalSpec>
+<Implementation><![CDATA[
+	if GloRef '= "" {
+		set GloRef = ..CalcTreeGloRef(GloRef,, Subs...)
+		do ..Assign(GloRef, Val)
+	}
 ]]></Implementation>
 </Method>
 
 <Method name="SetMultiArray">
-<Description>
-Setter for unknown multidimensional property</Description>
-<FormalSpec>Property:%String,OffsetSubs:%String="",Val,Subs...</FormalSpec>
+<FormalSpec>Property:%String,Val,Subs...</FormalSpec>
 <Implementation><![CDATA[
 	#dim gloRef As %String = $get(..KnownTrees(Property))
 	if gloRef = "" {
 		set gloRef = ..AddTree(Property)
 	}
-	if OffsetSubs '= "" {
-		set gloRef = $name(@gloRef@(OffsetSubs))
-	}
 	#dim encodedSubs As %List = ""
-
 	if gloRef '= "" {
 		set gloRef = ..CalcTreeGloRef(gloRef, .encodedSubs, Subs...)
 		do ..Assign(gloRef, Val)
@@ -339,7 +350,7 @@ Setter for unknown multidimensional property</Description>
 
 <Method name="%DispatchSetMultidimProperty">
 <FormalSpec>Property:%String,Val,Subs...</FormalSpec>
-<Implementation><![CDATA[	do ..SetMultiArray(Property, "", Val, Subs...)
+<Implementation><![CDATA[	do ..SetMultiArray(Property, Val, Subs...)
 ]]></Implementation>
 </Method>
 
@@ -383,6 +394,63 @@ Setter for unknown multidimensional property</Description>
 	$$$D(d.DocTree(2))
 	$$$D(d.DocTree(2,2))
 	$$$D(d.DocTree(2,2,2))
+]]></Implementation>
+</Method>
+
+<Method name="DebugHugeTree0">
+<ClassMethod>1</ClassMethod>
+<Implementation><![CDATA[
+	#dim base = "^||HugeTreeOld"
+	for i=1:1:500 {
+		#dim nextObject As %Integer = $increment(@base)
+		#dim objectGloReg As %String = $name(@base@(nextObject))
+		new %templateTree
+		for fieldN=1:1:119 {
+			#dim fieldName = "XmlParam_Field"_fieldN
+			set @objectGloReg@(fieldName,"Name") = fieldName
+			for property="Height","Width","Size","Longitude","Latitude","Kilo","Mega","Nano" {
+				set @objectGloReg@(fieldName, property) = $random(4)
+			}
+			merge %templateTree(fieldName) = @objectGloReg@(fieldName)
+		}
+		for goodField=1,13,24,56 {
+			#dim nameProp = %templateTree("XmlParam_Field"_goodField,"Name")
+			#dim sizeProp = %templateTree("XmlParam_Field"_goodField,"Size")
+			#dim latitudeProp = %templateTree("XmlParam_Field"_goodField,"Latitude")
+			#dim longitudeProp = %templateTree("XmlParam_Field"_goodField,"Longitude")
+		}
+	}
+	
+	// cleanup
+	kill @base
+]]></Implementation>
+</Method>
+
+<Method name="DebugHugeTree1">
+<ClassMethod>1</ClassMethod>
+<Implementation><![CDATA[
+	for i=1:1:500 {
+		#dim document As ZeroCopy.Tree = ..%New()
+		#dim template As ZeroCopy.Tree = ..%New()
+		
+		do template.AddTree("DC")
+		do document.AddTree("DC")
+		
+		for fieldN=1:1:119 {
+			#dim fieldName = "XmlParam_Field"_fieldN
+			set template.DC(fieldName,"Name") = fieldName
+			for property="Height","Width","Size","Longitude","Latitude","Kilo","Mega","Nano" {
+				set template.DC(fieldName, property) = $random(4)
+			}
+			set document.DC(fieldName) = template.GloRef("DC",fieldName)
+		}
+		for goodField=1,13,24,56 {
+			#dim nameProp = document.DC("XmlParam_Field"_goodField,"Name")
+			#dim sizeProp = document.DC("XmlParam_Field"_goodField,"Size")
+			#dim latitudeProp = document.DC("XmlParam_Field"_goodField,"Latitude")
+			#dim longitudeProp = document.DC("XmlParam_Field"_goodField,"Longitude")
+		}
+	}
 ]]></Implementation>
 </Method>
 </Class>

@@ -14,28 +14,21 @@ TreeHolder is sort of "smart pointer" which holds tree object with context</Desc
 <Type>ZeroCopy.Tree</Type>
 </Property>
 
-<UDLText name="T">
-<Content><![CDATA[
-// Property Subscripts As %String;
-
-]]></Content>
-</UDLText>
+<Property name="GloRef">
+<Type>%String</Type>
+</Property>
 
 <Method name="%DispatchMethod">
 <CodeMode>expression</CodeMode>
 <FormalSpec>Method:%String,Args...</FormalSpec>
-<Implementation><![CDATA[
-..TreeObject.GetMultiArray(..DocTreeName, "", Args...)
-
+<Implementation><![CDATA[..TreeObject.GetMultiArrayDirect(..GloRef, Args...)
 ]]></Implementation>
 </Method>
 
 <Method name="%DispatchSetMultidimProperty">
 <CodeMode>expression</CodeMode>
 <FormalSpec>Property:%String,Val,Subs...</FormalSpec>
-<Implementation><![CDATA[
-..TreeObject.SetMultiArray(..DocTreeName, "", Val, Subs...)
-
+<Implementation><![CDATA[..TreeObject.SetMultiArrayDirect(..GloRef, Val, Subs...)
 ]]></Implementation>
 </Method>
 </Class>
