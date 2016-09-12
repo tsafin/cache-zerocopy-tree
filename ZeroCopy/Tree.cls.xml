@@ -122,32 +122,6 @@ Kill temporary storage for all existing trees kept in the @TempGlo. Don't use it
 ]]></Implementation>
 </Method>
 
-<Method name="CalcTreeGloRef">
-<Description>
-Given arguments as subscripts, the @TreeGloRef as root of storage
-return the final global reference (no check for existence), also
-pass back the calculated @encodedSubs as binary key</Description>
-<FormalSpec><![CDATA[TreeGloRef:%String="",&encodedSubs:%List,Args...]]></FormalSpec>
-<ReturnType>%String</ReturnType>
-<Implementation><![CDATA[
-	// nothing to start from, bail out
-	if TreeGloRef = "" {
-		return ""
-	}
-	#dim i As %Integer
-	// TODO - extract to walk() function
-	// convert args to proper subscripts syntax, 
-	// calculate their encoded hash string along a way
-	set encodedSubs = ""
-	for i=1:1:$get(Args) {
-		set TreeGloRef = $name(@TreeGloRef@(Args(i)))
-		set encodedSubs = encodedSubs _ $lb(Args(i)) // TODO - encode using NLS normalization via $zu(70,*)
-	}
-
-	return TreeGloRef
-]]></Implementation>
-</Method>
-
 <Method name="RetainObjectsRef">
 <Description>
 increment reference to the object to make sure it will be kept
@@ -233,9 +207,46 @@ Factory method returning "smart-pointer" wrapped as
 	// no extra arguments, access to the root
 	set ptr.TreeObject = $this
 	set ptr.DocTreeName = Property
-	set ptr.GloRef = ..CalcTreeGloRef($get(..KnownTrees(Property)),, Args...)
+	set ptr.GloRef = ..CalcTreeGloRef($get(..KnownTrees(Property)), Args...)
 
 	return ptr
+]]></Implementation>
+</Method>
+
+<Method name="CalcTreeGloRef">
+<Description>
+Given arguments as subscripts, the @TreeGloRef as root of storage
+return the final global reference (no check for existence), also
+pass back the calculated @encodedSubs as binary key</Description>
+<FormalSpec>TreeGloRef:%String="",Args...</FormalSpec>
+<ReturnType>%String</ReturnType>
+<Implementation><![CDATA[
+	// nothing to start from, bail out
+	if TreeGloRef = "" {
+		return ""
+	}
+	#dim i As %Integer = 1
+	#dim len As %integer = $get(Args)
+#if 0
+	// skip all known indices
+	while ..SubsTLB($get(Args(i),-1)) {
+		
+	}
+#endif
+	for i=1:1:len {
+		#dim sub As %String = $get(Args(i))
+		set TreeGloRef = $name(@TreeGloRef@(sub))
+		#dim value As %String
+
+		// if we found intermediate data node
+		// then check whether it's pointer, and dereference it
+		// and stay at the same index
+		if $data(@TreeGloRef, value)#2 && ..IsPtr(value) {
+			set TreeGloRef = ..GetPtr(value)
+		} 
+	}
+
+	return TreeGloRef
 ]]></Implementation>
 </Method>
 
@@ -244,7 +255,7 @@ Factory method returning "smart-pointer" wrapped as
 actual implementation of a getter, given @GloRef reference</Description>
 <FormalSpec>GloRef:%String</FormalSpec>
 <Implementation><![CDATA[
-#define USETLB 0
+#define USETLB 1
 
 	if GloRef = "" {
 		return ..DefaultValue
@@ -255,10 +266,13 @@ actual implementation of a getter, given @GloRef reference</Description>
 	if $data(@GloRef, value)#2 {
 		if '..IsPtr(value) {
 			return value
+		} else {
+			set GloRef = ..GetPtr(value)
 		}
 	}
 	// 2. slow track
 	
+#if 0
 	// 2.1. check translation cache filled by prior accesses
 #if $$$USETLB
 	#dim cachedValue As %String = $get(..SubsTLB(GloRef))
@@ -292,6 +306,9 @@ actual implementation of a getter, given @GloRef reference</Description>
 	 
 	// we are succeeded only if we get to the end of subscripts
 	return $get(@preRef, ..DefaultValue)
+#else
+	return $get(@GloRef, ..DefaultValue)
+#endif
 ]]></Implementation>
 </Method>
 
@@ -303,7 +320,7 @@ silently invokes tree walker</Description>
 <FormalSpec>GloRef:%String,Args...</FormalSpec>
 <Implementation><![CDATA[
 	if GloRef '= "" {
-		set GloRef = ..CalcTreeGloRef(GloRef,, Args...)
+		set GloRef = ..CalcTreeGloRef(GloRef, Args...)
 		return ..GetValue(GloRef)
 	} else {
 		return ""
@@ -315,10 +332,9 @@ silently invokes tree walker</Description>
 <FormalSpec>Property:%String,Args...</FormalSpec>
 <Implementation><![CDATA[
 	#dim gloRef As %String = $get(..KnownTrees(Property))
-	#dim encodedSubs = ""
 
 	if gloRef '= "" {
-		set gloRef = ..CalcTreeGloRef(gloRef, .encodedSubs, Args...)
+		set gloRef = ..CalcTreeGloRef(gloRef, Args...)
 		return ..GetValue(gloRef)
 	} else {
 		return ""
@@ -339,7 +355,7 @@ Setter for unknown multidimensional property</Description>
 <FormalSpec>GloRef:%String,Val,Subs...</FormalSpec>
 <Implementation><![CDATA[
 	if GloRef '= "" {
-		set GloRef = ..CalcTreeGloRef(GloRef,, Subs...)
+		set GloRef = ..CalcTreeGloRef(GloRef, Subs...)
 		do ..Assign(GloRef, Val)
 	}
 ]]></Implementation>
@@ -352,9 +368,8 @@ Setter for unknown multidimensional property</Description>
 	if gloRef = "" {
 		set gloRef = ..AddTree(Property)
 	}
-	#dim encodedSubs As %List = ""
 	if gloRef '= "" {
-		set gloRef = ..CalcTreeGloRef(gloRef, .encodedSubs, Subs...)
+		set gloRef = ..CalcTreeGloRef(gloRef, Subs...)
 		do ..Assign(gloRef, Val)
 	}
 ]]></Implementation>

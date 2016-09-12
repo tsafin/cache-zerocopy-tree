@@ -21,6 +21,8 @@
 	set d.DocTree(1) = 13
 	set d.DocTree(1,1) = 1
 	set d.DocTree(1,3) = 3
+	write d.DocTree(1,1),!
+	write d.DocTree(1,3),!
 	zw d
 	do d.DumpTree("DocTree")
 	
