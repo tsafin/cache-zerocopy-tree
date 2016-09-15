@@ -255,14 +255,11 @@ pass back the calculated @encodedSubs as binary key</Description>
 actual implementation of a getter, given @GloRef reference</Description>
 <FormalSpec>GloRef:%String</FormalSpec>
 <Implementation><![CDATA[
-#define USETLB 1
-
 	if GloRef = "" {
 		return ..DefaultValue
 	}
+
 	#dim value As %String
-	
-	// 1. fast-track
 	if $data(@GloRef, value)#2 {
 		if '..IsPtr(value) {
 			return value
@@ -270,45 +267,7 @@ actual implementation of a getter, given @GloRef reference</Description>
 			set GloRef = ..GetPtr(value)
 		}
 	}
-	// 2. slow track
-	
-#if 0
-	// 2.1. check translation cache filled by prior accesses
-#if $$$USETLB
-	#dim cachedValue As %String = $get(..SubsTLB(GloRef))
-	if cachedValue '= "" {
-		return $get(@cachedValue, ..DefaultValue)
-	}
-#endif
-	
-	// 2.2. proceed full walk
-	// FIXME - we will just ignore namespace if any
-	#dim prefixName As %String = $qsubscript(GloRef, 0)
-	#dim len As %Integer = $qlength(GloRef)
-	#dim i As %Integer
-	#dim sub As %String 
-	#dim preRef As %String = prefixName
-	for i=1:1:len {
-		set sub = $qsubscript(GloRef, i)
-		set preRef = $name(@preRef@(sub))
-		
-		// if we found intermediate data node
-		// then check whether it's pointer, and dereference it
-		// and stay at the same index
-		if $data(@preRef, value)#2 && ..IsPtr(value) {
-			set preRef = ..GetPtr(value)
-		} 
-	}
-#if $$$USETLB
-	// 2.3 save translated reference for later access
-	set ..SubsTLB(GloRef) = preRef
-#endif
-	 
-	// we are succeeded only if we get to the end of subscripts
-	return $get(@preRef, ..DefaultValue)
-#else
 	return $get(@GloRef, ..DefaultValue)
-#endif
 ]]></Implementation>
 </Method>
 
